@@ -1,0 +1,106 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.cluster import KMeans
+
+%matplotlib inline
+import warnings
+warnings.filterwarnings('ignore')
+
+df = pd.read_csv(r"\Users\nikki\Docs\data\Mall_Customers.csv")
+
+df.isnull().sum()
+df.describe()
+
+df.groupby('Gender')[['Age','Annual Income (k$)', 'Spending Score (1-100)']].mean().round(1)
+
+Gender_group = df.groupby('Gender').size().reset_index(name='Count')
+Gender_group
+plt.figure(figsize= (4,8))
+plt.pie(Gender_group['Count'],labels = Gender_group['Gender'], autopct= '%1.1f%%', startangle=90)
+plt.title('Gender Distribution')
+plt.show()
+
+
+
+for column in df.columns:
+    if df[column].dtype in ['int64', 'float64']:
+        plt.figure(figsize =(4,4))
+        sns.kdeplot(df[column], shade=True, color='blue')
+        plt.title(f'KDE plot of {column}')
+        plt.xlabel(column)
+        plt.ylabel('Density')
+        plt.show
+
+sns.kdeplot(df[df['Gender'] == 'Male']['Annual Income (k$)'], shade = True, color='blue', label ='Male')
+sns.kdeplot(df[df['Gender'] == 'Female']['Annual Income (k$)'], shade = True, color='red', label ='Female')
+plt.show()
+
+plt.figure(figsize = (6,4))
+correlation_matrix = df[['Age', 'Spending Score (1-100)', 'Annual Income (k$)']].corr()
+sns.heatmap(correlation_matrix, annot = True, cmap ='coolwarm', fmt= '.2f')
+plt.title('Correlation Heatmap')
+plt.show()
+
+sns.scatterplot(data = df,x = 'Annual Income (k$)', y = 'Spending Score (1-100)')
+
+df.set_index('CustomerID', inplace = True)
+from sklearn.metrics import silhouette_score
+X = df.iloc[:,[2,3]]
+silhouette_scores = []
+for i in range(2,11):
+    kmeans = KMeans(n_clusters=i, init='k-means++', random_state=42)
+    labels = kmeans.fit_predict(X)
+    score = silhouette_score(X, labels)
+    silhouette_scores.append(score)
+
+print(silhouette_scores)
+
+cluster_range = range(2, 11)
+
+plt.figure(figsize=(6,4))
+plt.plot(cluster_range, silhouette_scores, marker = 'o')
+plt.title('Silhouette Scores for Different Clusters')
+plt.xlabel('Number of Clusters')
+plt.ylabel('silhouette Score')
+plt.grid(True)
+plt.show()
+
+
+optimal_clusters = 5
+
+kmeans_final = KMeans(n_clusters =optimal_clusters, init='k-means++', random_state=42)
+Y = kmeans_final.fit_predict(X)
+Y
+
+centroids = kmeans_final.cluster_centers_
+for i, centroid in enumerate (centroids):
+    print (f'Cluster {i}: {centroid}')
+
+cluster_labels ={}
+for i, centroid in enumerate (centroids):
+    income = centroid[0]
+    spend = centroid[1]
+
+    if income < 40:
+        income_label = 'Low Income'
+    elif 40 <= income <= 70:
+        income_label = 'Moderate Income'
+    else:
+        income_label = 'Affluent'
+
+
+    if spend < 40:
+        spend_label = 'Low Spender'
+    elif 40 <= spend <= 60:
+        spend_label = 'Moderate Spender'
+    else:
+        spend_label = 'Luxury Shopper'
+
+    cluster_labels[i] = f'{income_label}, {spend_label}'
+cluster_labels
+
+df['cluster'] = Y
+df['cluster Name'] = df['cluster'].map(cluster_labels)
+df['cluster Name']
